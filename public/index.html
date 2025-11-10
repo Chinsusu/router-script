@@ -38,6 +38,12 @@
             Config pfSense
           </button>
         </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-clone-tab" data-bs-toggle="tab" data-bs-target="#tab-clone"
+                  type="button" role="tab" aria-controls="tab-clone" aria-selected="false">
+            Clone PPPoE
+          </button>
+        </li>
       </ul>
 
       <div class="tab-content" id="confTabsContent">
@@ -164,6 +170,45 @@
             </div>
           </div> <!-- /row -->
         </div> <!-- /tab-pfsense -->
+
+        <!-- TAB: Clone PPPoE -->
+        <div class="tab-pane fade" id="tab-clone" role="tabpanel" aria-labelledby="tab-clone-tab" tabindex="0">
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0">Base &lt;ppp&gt; template</h5></div>
+                <div class="card-body">
+                  <textarea id="ppp-base" class="form-control font-monospace" rows="10"
+                    placeholder='&#10;&lt;ppp&gt;&#10;  &lt;ptpid&gt;1&lt;/ptpid&gt;&#10;  &lt;type&gt;pppoe&lt;/type&gt;&#10;  &lt;if&gt;pppoe1&lt;/if&gt;&#10;  &lt;ports&gt;vtnet1&lt;/ports&gt;&#10;  &lt;username&gt;&lt;![CDATA[user]]&gt;&lt;/username&gt;&#10;  &lt;password&gt;&lt;![CDATA[pass]]&gt;&lt;/password&gt;&#10;&lt;/ppp&gt;'></textarea>
+                  <div class="form-text">Có thể dán cả khối &lt;ppps&gt;...&lt;/ppps&gt; — tool sẽ lấy &lt;ppp&gt; đầu tiên làm mẫu.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Total PPPoE to generate</label>
+              <input type="number" id="ppp-count" min="1" value="5" class="form-control" />
+              <div class="form-text">Ví dụ 5 ⇒ sinh pppoe1..pppoe5 / vtnet1..vtnet5.</div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button id="ppp-gen" class="btn btn-primary w-100">Generate PPPs</button>
+            </div>
+            <div class="col-md-4 d-flex align-items-end gap-2">
+              <button id="ppp-dl" class="btn btn-success w-50">Download</button>
+              <button id="ppp-copy" class="btn btn-outline-secondary w-50">Copy</button>
+            </div>
+
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0">Output &lt;ppps&gt;</h5></div>
+                <div class="card-body">
+                  <textarea id="ppp-output" class="form-control font-monospace" rows="14"
+                    placeholder="# Kết quả &lt;ppps&gt; ... sẽ xuất hiện ở đây"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div> <!-- /tab-clone -->
       </div> <!-- /tab-content -->
 
     </div>

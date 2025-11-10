@@ -68,6 +68,48 @@ function maxOptIndex(xml){
   const it = [...xml.matchAll(/<opt(\d+)>/g)].map(m=>parseInt(m[1],10));
   return it.length ? Math.max(...it) : 0;
 }
+function firstPppBlockFromAny(xmlOrPpp){
+  const solo = xmlOrPpp.match(/^\s*<ppp>[\s\S]*<\/ppp>\s*$/i);
+  if (solo) return solo[0];
+  const m = xmlOrPpp.match(/<ppp>[\s\S]*?<\/ppp>/i);
+  return m ? m[0] : '';
+}
+function parseIfPorts(str){
+  const m = (str||'').trim().match(/^([a-zA-Z]+)(\d+)$/);
+  return m ? { prefix: m[1], start: parseInt(m[2],10) } : { prefix:'pppoe', start:1 };
+}
+function buildPPPClones(basePppOrPpps, total){
+  const ppp = firstPppBlockFromAny(basePppOrPpps);
+  if (!ppp) throw new Error('Không tìm thấy block <ppp> mẫu.');
+  const get = (tag) => {
+    const rx = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\/${tag}>`,'i');
+    const m = ppp.match(rx); return m ? m[1].trim() : '';
+  };
+  const user = get('username'); const pass = get('password');
+  const ifStr = get('if') || 'pppoe1'; const portsStr = get('ports') || 'vtnet1';
+  const ifp = parseIfPorts(ifStr), portp = parseIfPorts(portsStr);
+  const N = Math.max(1, Number(total)||1);
+  let body = '';
+  for (let i=1;i<=N;i++){
+    const ifName = `${ifp.prefix}${ifp.start + (i-1)}`;
+    const portName = `${portp.prefix}${portp.start + (i-1)}`;
+    body += `
+    <ppp>
+      <ptpid>${i}</ptpid>
+      <type>pppoe</type>
+      <if>${ifName}</if>
+      <ports>${portName}</ports>
+      <username><![CDATA[${user}]]></username>
+      <password><![CDATA[${pass}]]></password>
+      <provider></provider>
+      <bandwidth></bandwidth>
+      <mtu></mtu>
+      <mru></mru>
+      <mrru></mrru>
+    </ppp>`;
+  }
+  return `<ppps>${body}\n</ppps>`;
+}
 
 function parseConfig(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -222,6 +264,15 @@ const pfui = {
   gen: qs('#pf-gen'),
   dl: qs('#pf-dl'),
   copy: qs('#pf-copy')
+};
+// Clone PPPoE tab UI
+const cloneUI = {
+  base: qs('#ppp-base'),
+  count: qs('#ppp-count'),
+  gen: qs('#ppp-gen'),
+  out: qs('#ppp-output'),
+  dl: qs('#ppp-dl'),
+  copy: qs('#ppp-copy'),
 };
 
 let bootstrapModal = null;
@@ -469,6 +520,29 @@ if (pfui.gen) {
   pfui.copy.addEventListener('click', () => navigator.clipboard.writeText(pfui.out.value||'').then(()=>setStatus('Copied pfSense XML'), ()=>{}));
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();
+
+/* ======================== Clone PPPoE events ======================== */
+if (cloneUI.gen) {
+  cloneUI.gen.addEventListener('click', () => {
+    try{
+      const base = (cloneUI.base.value || '').trim();
+      if (!base) { setStatus('Dán block <ppp> hoặc <ppps> trước đã.'); return; }
+      const n = Number(cloneUI.count.value||0);
+      if (!n || n<1) { setStatus('Số lượng cần clone phải >= 1.'); return; }
+      const xml = buildPPPClones(base, n);
+      cloneUI.out.value = xml; clearStatus();
+    } catch(e){
+      setStatus('Clone PPPoE: ' + (e.message||e));
+    }
+  });
+}
+if (cloneUI.dl) cloneUI.dl.addEventListener('click', () => {
+  const blob = new Blob([cloneUI.out.value||''], { type: 'application/xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'ppps.xml'; a.click(); URL.revokeObjectURL(a.href);
+});
+if (cloneUI.copy) cloneUI.copy.addEventListener('click', () =>
+  navigator.clipboard.writeText(cloneUI.out.value||'').then(()=>setStatus('Copied PPPs XML'), ()=>{}));
 
 // ==== pfSense tab helpers ====
 (function(){
