@@ -21,6 +21,7 @@ function isValidMac(mac) {
   return /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(mac);
 }
 function uniqueMacs(arr) {
+  // dedupe helper
   const seen = new Set();
   return arr.every(m => {
     const mU = m.toUpperCase();
@@ -28,6 +29,9 @@ function uniqueMacs(arr) {
     seen.add(mU);
     return true;
   });
+}
+function deepClone(v){
+  return JSON.parse(JSON.stringify(v));
 }
 
 function parseConfig(text) {
@@ -78,7 +82,7 @@ function serializeConfig(state, originalText) {
   return out.join('\n') + '\n';
 }
 
-// UI
+// UI State (baseline giữ config gốc từ lần import đầu)
 const ui = {
   vmid: qs('#vmid'),
   name: qs('#name'),
@@ -103,7 +107,7 @@ let bootstrapModal = null;
 function showImportModal(){ const el = document.getElementById('importModal'); bootstrapModal = bootstrap.Modal.getOrCreateInstance(el); bootstrapModal.show(); }
 function hideImportModal(){ if (bootstrapModal) bootstrapModal.hide(); }
 
-const appState = { originalText: '', nets: [] };
+const appState = { originalText: '', nets: [], baselineNets: [] };
 
 function renderNets() {
   ui.netList.innerHTML = '';
@@ -111,6 +115,8 @@ function renderNets() {
   appState.nets.forEach((n, i) => {
     const row = document.createElement('div');
     row.className = 'row g-2 align-items-end mb-2';
+    const minKeep = Math.min(2, (appState.baselineNets?.length || 0));
+    const locked = i < minKeep;
     row.innerHTML = `
       <div class="col-12 col-md-2">
         <label class="form-label">net${i}</label>
@@ -142,12 +148,17 @@ function renderNets() {
     const tagEl = row.querySelector('.tag');
     const btnRand = row.querySelector('.btn-rand');
     const btnDel = row.querySelector('.btn-del');
+    if (locked) {
+      btnDel.disabled = true;
+      btnDel.classList.add('disabled');
+      btnDel.title = 'locked (baseline)';
+    }
     modelEl.addEventListener('input', () => n.model = modelEl.value.trim() || 'virtio');
     macEl.addEventListener('input', () => { n.mac = macEl.value.toUpperCase(); validateMacs(); });
     bridgeEl.addEventListener('input', () => n.bridge = bridgeEl.value.trim());
     tagEl.addEventListener('input', () => n.tag = tagEl.value.trim());
     btnRand.addEventListener('click', () => { n.mac = genMac(); macEl.value = n.mac; validateMacs(); });
-    btnDel.addEventListener('click', () => { appState.nets.splice(i,1); renderNets(); });
+    btnDel.addEventListener('click', () => { if (locked) return; appState.nets.splice(i,1); renderNets(); });
     row.dataset.idx = i;
     ui.netList.appendChild(row);
   });
@@ -186,16 +197,18 @@ function addNet(defaults = {}) {
     bridge = defaults.bridge;
   } else if (i === 0) {
     bridge = 'vmbr0';
-  } else if (i >= 2 && appState.nets[1]) {
-    bridge = appState.nets[1].bridge || '';
+  } else if (i >= 2 && (appState.nets[1] || appState.baselineNets[1])) {
+    const n1 = appState.nets[1] || appState.baselineNets[1];
+    bridge = n1.bridge || '';
   } else {
     bridge = '';
   }
 
   if (Object.prototype.hasOwnProperty.call(defaults, 'tag')) {
     tag = defaults.tag;
-  } else if (i >= 2 && appState.nets[1]) {
-    tag = appState.nets[1].tag || '';
+  } else if (i >= 2 && (appState.nets[1] || appState.baselineNets[1])) {
+    const n1 = appState.nets[1] || appState.baselineNets[1];
+    tag = n1.tag || '';
   } else {
     tag = '';
   }
@@ -211,16 +224,19 @@ function addNet(defaults = {}) {
 }
 
 function ensureNetCount(count) {
-  count = Math.max(0, Math.min(24, Number(count)||0));
-  while (appState.nets.length < count) addNet({});
-  while (appState.nets.length > count) appState.nets.pop();
-  renderNets();
-}
-}
-function ensureNetCount(count) {
-  count = Math.max(0, Math.min(24, Number(count)||0));
-  while (appState.nets.length < count) addNet({});
-  while (appState.nets.length > count) appState.nets.pop();
+  const desired = Math.max(0, Math.min(24, Number(count) || 0));
+  const minKeep = Math.min(2, (appState.baselineNets?.length || 0));
+  const finalCount = Math.max(desired, minKeep);
+  while (appState.nets.length < finalCount) {
+    const idx = appState.nets.length;
+    if (appState.baselineNets && appState.baselineNets[idx]) {
+      appState.nets.push(deepClone(appState.baselineNets[idx]));
+    } else {
+      addNet({});
+    }
+  }
+  while (appState.nets.length > finalCount && appState.nets.length > minKeep) appState.nets.pop();
+  ui.netCount.value = String(finalCount);
   renderNets();
 }
 function collectState() {
@@ -254,7 +270,7 @@ function copyOutput() {
 }
 function resetAll() {
   qs('#vmid').value=''; qs('#name').value=''; qs('#vmgenid').value=''; qs('#scsi0').value='';
-  appState.originalText=''; appState.nets=[]; addNet({}); qs('#output').value=''; clearStatus();
+  appState.originalText=''; appState.nets=[]; appState.baselineNets=[]; addNet({}); qs('#output').value=''; clearStatus();
 }
 function importApply() {
   const text = qs('#import-text').value || '';
@@ -266,6 +282,7 @@ function importApply() {
     parsed.nets.sort((a,b)=>a.index-b.index).forEach((n,i)=>{
       appState.nets.push({ index:i, model:n.model||'virtio', mac:(n.mac||genMac()).toUpperCase(), bridge:n.bridge || (i===0?'vmbr0':''), tag:n.tag||'' });
     });
+    appState.baselineNets = appState.nets.map(n => deepClone(n));
   } else addNet({});
   renderNets(); if (bootstrapModal) bootstrapModal.hide();
 }
