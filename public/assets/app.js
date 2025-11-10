@@ -212,6 +212,25 @@ function stripCreatedUpdated(rule){
     .replace(/<created>[\s\S]*?<\/created>/ig, '')
     .replace(/<updated>[\s\S]*?<\/updated>/ig, '');
 }
+function removeId(rule){
+  // xoá <id>...</id> nếu có
+  return rule.replace(/\s*<id>[\s\S]*?<\/id>\s*/i, '');
+}
+function parseTracker(rule){
+  const m = rule.match(/<tracker>(\d+)<\/tracker>/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+function replaceOrInsertTracker(rule, value){
+  if (/<tracker>[\s\S]*?<\/tracker>/i.test(rule)) {
+    return rule.replace(/<tracker>[\s\S]*?<\/tracker>/i, `<tracker>${value}<\/tracker>`);
+  }
+  const m = rule.match(/<\/type>/i);
+  if (m) {
+    const at = m.index + m[0].length;
+    return rule.slice(0, at) + `\n      <tracker>${value}<\/tracker>` + rule.slice(at);
+  }
+  return rule.replace(/<\/rule>/i, `  <tracker>${value}<\/tracker>\n    <\/rule>`);
+}
 function buildRuleClones(baseInput, total){
   const desired = Math.max(1, Number(total)||1);
   const baseRule = firstRuleBlockFromAny(baseInput);
@@ -224,18 +243,36 @@ function buildRuleClones(baseInput, total){
 
   const isFilter = hasFilterWrapper(baseInput);
   const beginIndex = isFilter ? 2 : 1;
+  const baseTracker = parseTracker(baseRule) ?? Math.floor(Date.now() / 1000);
 
   let rules = '';
   for (let i = beginIndex; i <= desired; i++){
     const ip = numToIp(baseIpNum + (i-1));
     const gw = `${gwParts.prefix}${gwParts.num + (i-1)}${gwParts.suffix}`;
-    let r = stripCreatedUpdated(baseRule);
+    const tracker = baseTracker + (i - beginIndex + 1);
+    let r = baseRule;
+    // cleanup + ids + tracker
+    r = stripCreatedUpdated(r);
+    r = removeId(r);
     r = replaceSourceAddressBlock(r, ip);
     r = replaceGateway(r, gw);
+    r = replaceOrInsertTracker(r, tracker);
     rules += `\n    ${r.trim()}\n`;
   }
   if (isFilter) return insertAfterOpen(baseInput, 'filter', rules.trimStart());
-  return `<filter>\n    ${stripCreatedUpdated(baseRule).trim()}\n${rules}  </filter>`;
+  const firstWrapped = replaceOrInsertTracker(
+    replaceGateway(
+      replaceSourceAddressBlock(
+        removeId(
+          stripCreatedUpdated(baseRule)
+        ),
+        startIp
+      ),
+      startGw
+    ),
+    baseTracker
+  ).trim();
+  return `<filter>\n    ${firstWrapped}\n${rules}  </filter>`;
 }
 
 function parseConfig(text) {
