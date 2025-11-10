@@ -24,6 +24,9 @@
           <a class="nav-link" id="tab-pfsense-tab" data-bs-toggle="tab" href="#tab-pfsense" role="tab" aria-controls="tab-pfsense" aria-selected="false">Config pfSense</a>
         </li>
         <li class="nav-item" role="presentation">
+          <a class="nav-link" id="tab-wanclone-tab" data-bs-toggle="tab" href="#tab-wanclone" role="tab" aria-controls="tab-wanclone" aria-selected="false">Clone WAN</a>
+        </li>
+        <li class="nav-item" role="presentation">
           <a class="nav-link" id="tab-clone-tab" data-bs-toggle="tab" href="#tab-clone" role="tab" aria-controls="tab-clone" aria-selected="false">Clone PPPoE</a>
         </li>
       </ul>
@@ -43,6 +46,44 @@
             <div class="card-header"><strong>Tab 2 — Config pfSense</strong></div>
             <div class="card-body">
               <p class="mb-0">This is the pfSense tab content. Paste XML features will be added next.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-wanclone" role="tabpanel" aria-labelledby="tab-wanclone-tab">
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0">Base &lt;wan&gt; template</h5></div>
+                <div class="card-body">
+                  <textarea id="wan-base" class="form-control font-monospace" rows="10"
+                    placeholder='\n<wan>\n  <enable></enable>\n  <if>pppoe1</if>\n  <blockpriv></blockpriv>\n  <blockbogons></blockbogons>\n  <descr><![CDATA[WAN1]]></descr>\n  <spoofmac></spoofmac>\n  <ipaddr>pppoe</ipaddr>\n</wan>\n\n# Hoặc dán cả <interfaces>... có chứa <wan>'></textarea>
+                  <div class="form-text">Nếu dán cả &lt;interfaces&gt;, tool sẽ chèn thẳng &lt;optX&gt; vào trong đó.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Total WAN to reach</label>
+              <input type="number" id="wan-count" min="1" value="5" class="form-control" />
+              <div class="form-text">Ví dụ 5 ⇒ dữ liệu sẽ gồm WAN1 (gốc) + sinh thêm WAN2..WAN5.</div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button id="wan-gen" class="btn btn-primary w-100">Generate WANs</button>
+            </div>
+            <div class="col-md-4 d-flex align-items-end gap-2">
+              <button id="wan-dl" class="btn btn-success w-50">Download</button>
+              <button id="wan-copy" class="btn btn-outline-secondary w-50">Copy</button>
+            </div>
+
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0">Output</h5></div>
+                <div class="card-body">
+                  <textarea id="wan-output" class="form-control font-monospace" rows="14"
+                    placeholder="# Các block <optX>... hoặc toàn bộ <interfaces> sẽ xuất hiện ở đây"></textarea>
+                </div>
+              </div>
             </div>
           </div>
         </div>

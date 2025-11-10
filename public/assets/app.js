@@ -68,6 +68,13 @@ function maxOptIndex(xml){
   const it = [...xml.matchAll(/<opt(\d+)>/g)].map(m=>parseInt(m[1],10));
   return it.length ? Math.max(...it) : 0;
 }
+function hasInterfacesWrapper(s){ return /<interfaces>/i.test(s) && /<\/interfaces>/i.test(s); }
+function firstWanBlockFromAny(s){
+  const solo = s.match(/^\s*<wan>[\s\S]*?<\/wan>\s*$/i);
+  if (solo) return solo[0];
+  const m = s.match(/<wan>[\s\S]*?<\/wan>/i);
+  return m ? m[0] : '';
+}
 function firstPppBlockFromAny(xmlOrPpp){
   const solo = xmlOrPpp.match(/^\s*<ppp>[\s\S]*<\/ppp>\s*$/i);
   if (solo) return solo[0];
@@ -122,6 +129,48 @@ function buildPPPClones(baseInput, total){
     return `<ppps>\n${baseInput.trim()}\n${clones}\n</ppps>`;
   }
   return insertBeforeClose(baseInput, 'ppps', clones);
+}
+
+// ---- Clone WAN: giữ <wan> gốc và append <optX> để đạt tổng WAN mong muốn.
+function parseIfSuffix(str){
+  const m = (str||'').trim().match(/^([a-zA-Z]+)(\d+)$/);
+  return m ? { prefix: m[1], start: parseInt(m[2],10) } : { prefix:'pppoe', start:1 };
+}
+function buildWANClones(baseInput, total){
+  const wanBlock = firstWanBlockFromAny(baseInput);
+  if (!wanBlock) throw new Error('Không tìm thấy block <wan> mẫu.');
+  const ifStr = tagTextFrom(wanBlock, 'if') || 'pppoe1';
+  const ipaddrVal = tagTextFrom(wanBlock, 'ipaddr') || 'pppoe';
+  const ifp = parseIfSuffix(ifStr);
+
+  const desiredTotal = Math.max(1, Number(total)||1);
+
+  const withInterfaces = hasInterfacesWrapper(baseInput);
+  const existingOptCount = withInterfaces ? (baseInput.match(/<opt\d+>/gi)||[]).length : 0;
+  const existingTotal = 1 + existingOptCount;
+  if (desiredTotal <= existingTotal) {
+    return withInterfaces ? baseInput : '';
+  }
+
+  const startOpt = withInterfaces ? (maxOptIndex(baseInput) + 1) : 1;
+  let clones = '';
+  for (let i = existingTotal + 1; i <= desiredTotal; i++) {
+    const wanNum = i;
+    const optIdx = startOpt + (i - (existingTotal + 1));
+    const ifName = `${ifp.prefix}${wanNum}`;
+    clones += `
+    <opt${optIdx}>
+      <enable></enable>
+      <if>${ifName}</if>
+      <blockpriv></blockpriv>
+      <blockbogons></blockbogons>
+      <descr><![CDATA[WAN${wanNum}]]></descr>
+      <spoofmac></spoofmac>
+      <ipaddr>${ipaddrVal}</ipaddr>
+    </opt${optIdx}>`;
+  }
+
+  return withInterfaces ? insertBeforeClose(baseInput, 'interfaces', clones) : clones.trimStart();
 }
 
 function parseConfig(text) {
@@ -286,6 +335,16 @@ const cloneUI = {
   out: qs('#ppp-output'),
   dl: qs('#ppp-dl'),
   copy: qs('#ppp-copy'),
+};
+
+// Clone WAN tab UI
+const wanUI = {
+  base: qs('#wan-base'),
+  count: qs('#wan-count'),
+  gen: qs('#wan-gen'),
+  out: qs('#wan-output'),
+  dl: qs('#wan-dl'),
+  copy: qs('#wan-copy'),
 };
 
 let bootstrapModal = null;
@@ -533,6 +592,30 @@ if (pfui.gen) {
   pfui.copy.addEventListener('click', () => navigator.clipboard.writeText(pfui.out.value||'').then(()=>setStatus('Copied pfSense XML'), ()=>{}));
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();
+
+/* ======================== Clone WAN events ======================== */
+if (wanUI.gen) {
+  wanUI.gen.addEventListener('click', () => {
+    try{
+      const base = (wanUI.base.value || '').trim();
+      if (!base) { setStatus('Dán block <wan> hoặc cả <interfaces> chứa <wan> trước đã.'); return; }
+      const n = Number(wanUI.count.value||0);
+      if (!n || n<1) { setStatus('Total WAN to reach phải >= 1.'); return; }
+      const result = buildWANClones(base, n);
+      if (!result) setStatus('Không cần thêm WAN mới (đã đủ).');
+      else { wanUI.out.value = result; clearStatus(); }
+    } catch(e){
+      setStatus('Clone WAN: ' + (e.message||e));
+    }
+  });
+}
+if (wanUI.dl) wanUI.dl.addEventListener('click', () => {
+  const blob = new Blob([wanUI.out.value||''], { type: 'application/xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'wan-clones.xml'; a.click(); URL.revokeObjectURL(a.href);
+});
+if (wanUI.copy) wanUI.copy.addEventListener('click', () =>
+  navigator.clipboard.writeText(wanUI.out.value||'').then(()=>setStatus('Copied WAN blocks'), ()=>{}));
 
 // Fallback tab toggling if Bootstrap JS is not wiring tabs
 (function wireTabClicks(){

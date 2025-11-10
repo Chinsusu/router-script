@@ -76,3 +76,68 @@ document.querySelectorAll('a[data-bs-toggle="tab"]').forEach((el)=>{
   dlBtn?.addEventListener('click', download);
   cpBtn?.addEventListener('click', copy);
 })();
+
+// ==== Clone WAN helpers and bindings ====
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const baseTA = $('#wan-base');
+  const countEl = $('#wan-count');
+  const genBtn = $('#wan-gen');
+  const outTA = $('#wan-output');
+  const dlBtn = $('#wan-dl');
+  const cpBtn = $('#wan-copy');
+  if (!baseTA) return;
+
+  const hasInterfacesWrapper = (s)=> /<interfaces>/i.test(s) && /<\/interfaces>/i.test(s);
+  const firstWanBlockFromAny = (s)=>{
+    const solo = s.match(/^\s*<wan>[\s\S]*?<\/wan>\s*$/i);
+    if (solo) return solo[0];
+    const m = s.match(/<wan>[\s\S]*?<\/wan>/i); return m ? m[0] : '';
+  };
+  const tagTextFrom = (sec, tag)=>{
+    if (!sec) return '';
+    const re = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\/${tag}>`,'i');
+    const m = sec.match(re); return m ? m[1].trim() : '';
+  };
+  const parseIfSuffix = (str)=>{
+    const m = (str||'').trim().match(/^([a-zA-Z]+)(\d+)$/); return m ? {prefix:m[1], start:parseInt(m[2],10)} : {prefix:'pppoe', start:1};
+  };
+  const maxOptIndex = (xml)=>{ const it=[...xml.matchAll(/<opt(\d+)>/g)].map(m=>parseInt(m[1],10)); return it.length?Math.max(...it):0; };
+  const insertBeforeClose = (xml, tag, content)=>{ const idx = xml.lastIndexOf(`</${tag}>`); if(idx<0) throw new Error(`Missing </${tag}>`); return xml.slice(0,idx)+content+xml.slice(idx); };
+
+  function buildWANClones(baseInput, total){
+    const wanBlock = firstWanBlockFromAny(baseInput);
+    if (!wanBlock) throw new Error('Không tìm thấy block <wan> mẫu.');
+    const ifStr = tagTextFrom(wanBlock,'if') || 'pppoe1';
+    const ipaddrVal = tagTextFrom(wanBlock,'ipaddr') || 'pppoe';
+    const ifp = parseIfSuffix(ifStr);
+    const desiredTotal = Math.max(1, Number(total)||1);
+
+    const withInterfaces = hasInterfacesWrapper(baseInput);
+    const existingOptCount = withInterfaces ? (baseInput.match(/<opt\d+>/gi)||[]).length : 0;
+    const existingTotal = 1 + existingOptCount;
+    if (desiredTotal <= existingTotal) return withInterfaces ? baseInput : '';
+
+    const startOpt = withInterfaces ? (maxOptIndex(baseInput) + 1) : 1;
+    let clones = '';
+    for (let i = existingTotal + 1; i <= desiredTotal; i++){
+      const wanNum = i; const optIdx = startOpt + (i - (existingTotal + 1));
+      const ifName = `${ifp.prefix}${wanNum}`;
+      clones += `\n    <opt${optIdx}>\n      <enable></enable>\n      <if>${ifName}</if>\n      <blockpriv></blockpriv>\n      <blockbogons></blockbogons>\n      <descr><![CDATA[WAN${wanNum}]]></descr>\n      <spoofmac></spoofmac>\n      <ipaddr>${ipaddrVal}</ipaddr>\n    </opt${optIdx}>`;
+    }
+
+    return withInterfaces ? insertBeforeClose(baseInput,'interfaces',clones) : clones.trimStart();
+  }
+
+  function generate(){
+    const base = (baseTA.value||'').trim(); if (!base) { alert('Dán <wan> hoặc <interfaces> chứa <wan>.'); return; }
+    const n = Number(countEl.value||0); if (!n||n<1) { alert('Total WAN to reach phải >= 1.'); return; }
+    try { outTA.value = buildWANClones(base, n); } catch(e){ alert(String(e.message||e)); }
+  }
+  function download(){ const xml=(outTA.value||'').trim(); if(!xml) return; const blob=new Blob([xml],{type:'application/xml'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wan-clones.xml'; a.click(); URL.revokeObjectURL(a.href); }
+  async function copy(){ const xml=(outTA.value||'').trim(); if(!xml) return; try{ await navigator.clipboard.writeText(xml);}catch{} }
+
+  genBtn?.addEventListener('click', generate);
+  dlBtn?.addEventListener('click', download);
+  cpBtn?.addEventListener('click', copy);
+})();
