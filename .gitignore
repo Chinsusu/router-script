@@ -1,12 +1,8 @@
 .DS_Store
 node_modules
 dist
-.pnp.cjs
-.pnp.loader.mjs
-.pnp.data.json
 .workers
 .wrangler
 **/.wrangler
 *.log
 *.zip
-~.bashrc

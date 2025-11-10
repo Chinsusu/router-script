@@ -1,23 +1,55 @@
 :root{
-  --brand-primary: #7367F0; /* Vuexy primary */
+  /* Brand palette (Vuexy-ish) */
+  --brand-primary: #7367F0;
   --brand-success: #28C76F;
-  --brand-danger: #EA5455;
+  --brand-danger:  #EA5455;
   --brand-warning: #FF9F43;
-  --brand-info: #00CFE8;
+  --brand-info:    #00CFE8;
+
+  /* Bootstrap dark overrides */
+  color-scheme: dark;
+  --bs-body-bg:     #0f0f12;
+  --bs-body-color:  #f1f2f6;
+  --bs-border-color:#2a2a3b;
 }
-body { background-color: #0f0f12; color: #d8d8df; }
-.card { background-color: #15151c; border-color: #232336; }
-.card-header { border-bottom-color: #232336; }
-.navbar.app-header { background: #15151c; border-bottom: 1px solid #232336; }
-.form-control, .form-select, textarea { background-color: #101018; color: #e6e6f0; border-color: #2a2a3b; }
-.form-control:focus { border-color: var(--brand-primary); box-shadow: none; }
-.btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); }
-.btn-outline-primary { border-color: var(--brand-primary); color: var(--brand-primary); }
-.btn-outline-primary:hover { background: var(--brand-primary); color: #fff; }
-.btn-success { background: var(--brand-success); border-color: var(--brand-success); }
-.btn-outline-danger { color: var(--brand-danger); border-color: var(--brand-danger); }
-.btn-outline-danger:hover { background: var(--brand-danger); color: #fff; }
+
+/* Base */
+body { background-color:#0f0f12; color:#f1f2f6; }
 .font-monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-.small-muted { color: #9aa0b4; }
-.badge-outline { border: 1px solid #444; }
-.footer { background: #15151c; }
+.text-muted, .form-text { color:#b8bfd1 !important; }
+.form-label, label { color:#eaeaf2; }
+.card-header h5, .card h5, .navbar-brand { color:#f3f5ff; }
+
+/* Containers */
+.card, .modal-content { background-color:#15151c; border-color:#232336; }
+.card-header, .modal-header, .modal-footer { border-color:#232336; }
+.footer { background:#15151c; }
+
+/* Navbar */
+.navbar.app-header { background:#15151c; border-bottom:1px solid #232336; }
+.navbar-dark .navbar-brand { color:#f3f5ff; }
+
+/* Forms */
+.form-control, .form-select, textarea {
+  background-color:#11121a;
+  color:#f2f4ff;
+  border-color:#2a2a3b;
+}
+.form-control::placeholder, textarea::placeholder { color:#9aa0b4; opacity:1; }
+.form-control:focus, .form-select:focus, textarea:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 .2rem rgba(115,103,240,.15);
+}
+
+/* Buttons */
+.btn-primary { background:var(--brand-primary); border-color:var(--brand-primary); }
+.btn-outline-primary { border-color:var(--brand-primary); color:var(--brand-primary); }
+.btn-outline-primary:hover { background:var(--brand-primary); color:#fff; }
+.btn-success { background:var(--brand-success); border-color:var(--brand-success); }
+.btn-outline-danger { color:var(--brand-danger); border-color:var(--brand-danger); }
+.btn-outline-danger:hover { background:var(--brand-danger); color:#fff; }
+.btn-outline-secondary { color:#d8d8df; border-color:#3a3a4a; }
+.btn-outline-secondary:hover { background:#2a2a3b; color:#fff; }
+
+/* Misc */
+.badge-outline { border:1px solid #444; }
