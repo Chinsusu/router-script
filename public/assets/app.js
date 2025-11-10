@@ -68,6 +68,9 @@ function maxOptIndex(xml){
   const it = [...xml.matchAll(/<opt(\d+)>/g)].map(m=>parseInt(m[1],10));
   return it.length ? Math.max(...it) : 0;
 }
+function hasFilterWrapper(s){ return /<filter>/i.test(s) && /<\/filter>/i.test(s); }
+function firstRuleBlockFromAny(s){ const m = s.match(/<rule>[\s\S]*?<\/rule>/i); return m ? m[0] : ''; }
+function getTagBlock(section, tag){ const m = section.match(new RegExp(`<${tag}>[\\s\\S]*?<\/${tag}>`, 'i')); return m ? m[0] : ''; }
 function hasInterfacesWrapper(s){ return /<interfaces>/i.test(s) && /<\/interfaces>/i.test(s); }
 function firstWanBlockFromAny(s){
   const solo = s.match(/^\s*<wan>[\s\S]*?<\/wan>\s*$/i);
@@ -171,6 +174,68 @@ function buildWANClones(baseInput, total){
   }
 
   return withInterfaces ? insertBeforeClose(baseInput, 'interfaces', clones) : clones.trimStart();
+}
+
+// ---- Clone Rules (filter) ---------------------------------------------------
+function getSourceAddressFromRule(rule){
+  const m = rule.match(/<source>[\s\S]*?<address>([\s\S]*?)<\/address>[\s\S]*?<\/source>/i);
+  return m ? m[1].trim() : '';
+}
+function replaceSourceAddressBlock(rule, newIp){
+  if (/<source>/i.test(rule)) {
+    if (/<source>[\s\S]*?<address>[\s\S]*?<\/address>[\s\S]*?<\/source>/i.test(rule)) {
+      return rule.replace(/<source>[\s\S]*?<address>[\s\S]*?<\/address>[\s\S]*?<\/source>/i,
+        `<source>\n        <address>${newIp}</address>\n      </source>`);
+    }
+    return rule.replace(/<source>[\s\S]*?<\/source>/i, `<source>\n        <address>${newIp}</address>\n      </source>`);
+  }
+  const afterIpproto = rule.match(/<\/ipprotocol>/i);
+  if (afterIpproto) {
+    const at = afterIpproto.index + afterIpproto[0].length;
+    return rule.slice(0, at) + `\n      <source><address>${newIp}</address></source>` + rule.slice(at);
+  }
+  return rule;
+}
+function parseGatewayParts(gwText){
+  const m = (gwText||'').trim().match(/^(.*?)(\d+)(.*)$/);
+  if (!m) return { prefix: gwText||'WAN', num: 1, suffix: '' };
+  return { prefix: m[1], num: parseInt(m[2],10), suffix: m[3] };
+}
+function replaceGateway(rule, gw){
+  if (/<gateway>[\s\S]*?<\/gateway>/i.test(rule)) {
+    return rule.replace(/<gateway>[\s\S]*?<\/gateway>/i, `<gateway>${gw}</gateway>`);
+  }
+  return rule.replace(/<\/rule>/i, `  <gateway>${gw}<\/gateway>\n    <\/rule>`);
+}
+function stripCreatedUpdated(rule){
+  return rule
+    .replace(/<created>[\s\S]*?<\/created>/ig, '')
+    .replace(/<updated>[\s\S]*?<\/updated>/ig, '');
+}
+function buildRuleClones(baseInput, total){
+  const desired = Math.max(1, Number(total)||1);
+  const baseRule = firstRuleBlockFromAny(baseInput);
+  if (!baseRule) throw new Error('Không tìm thấy rule mẫu.');
+  const startIp = getSourceAddressFromRule(baseRule);
+  if (!startIp) throw new Error('Rule mẫu thiếu <source><address>...');
+  const startGw = tagTextFrom(baseRule, 'gateway') || 'WAN1_PPPOE';
+  const gwParts = parseGatewayParts(startGw);
+  const baseIpNum = ipToNum(startIp);
+
+  const isFilter = hasFilterWrapper(baseInput);
+  const beginIndex = isFilter ? 2 : 1;
+
+  let rules = '';
+  for (let i = beginIndex; i <= desired; i++){
+    const ip = numToIp(baseIpNum + (i-1));
+    const gw = `${gwParts.prefix}${gwParts.num + (i-1)}${gwParts.suffix}`;
+    let r = stripCreatedUpdated(baseRule);
+    r = replaceSourceAddressBlock(r, ip);
+    r = replaceGateway(r, gw);
+    rules += `\n    ${r.trim()}\n`;
+  }
+  if (isFilter) return insertAfterOpen(baseInput, 'filter', rules.trimStart());
+  return `<filter>\n    ${stripCreatedUpdated(baseRule).trim()}\n${rules}  </filter>`;
 }
 
 function parseConfig(text) {
@@ -345,6 +410,16 @@ const wanUI = {
   out: qs('#wan-output'),
   dl: qs('#wan-dl'),
   copy: qs('#wan-copy'),
+};
+
+// Clone Rules tab UI
+const ruleUI = {
+  base: qs('#rule-base'),
+  count: qs('#rule-count'),
+  gen: qs('#rule-gen'),
+  out: qs('#rule-output'),
+  dl: qs('#rule-dl'),
+  copy: qs('#rule-copy'),
 };
 
 let bootstrapModal = null;
@@ -592,6 +667,29 @@ if (pfui.gen) {
   pfui.copy.addEventListener('click', () => navigator.clipboard.writeText(pfui.out.value||'').then(()=>setStatus('Copied pfSense XML'), ()=>{}));
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();
+
+/* ======================== Clone Rules events ======================== */
+if (ruleUI.gen) {
+  ruleUI.gen.addEventListener('click', () => {
+    try{
+      const base = (ruleUI.base.value || '').trim();
+      if (!base) { setStatus('Dán 1 <rule> hoặc <filter> chứa rule mẫu trước đã.'); return; }
+      const n = Number(ruleUI.count.value||0);
+      if (!n || n<1) { setStatus('Total rules to reach phải >= 1.'); return; }
+      const result = buildRuleClones(base, n);
+      ruleUI.out.value = result; clearStatus();
+    } catch(e){
+      setStatus('Clone Rules: ' + (e.message||e));
+    }
+  });
+}
+if (ruleUI.dl) ruleUI.dl.addEventListener('click', () => {
+  const blob = new Blob([ruleUI.out.value||''], { type: 'application/xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'rules.xml'; a.click(); URL.revokeObjectURL(a.href);
+});
+if (ruleUI.copy) ruleUI.copy.addEventListener('click', () =>
+  navigator.clipboard.writeText(ruleUI.out.value||'').then(()=>setStatus('Copied Rules XML'), ()=>{}));
 
 /* ======================== Clone WAN events ======================== */
 if (wanUI.gen) {
