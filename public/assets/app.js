@@ -521,6 +521,34 @@ if (pfui.gen) {
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();
 
+// Fallback tab toggling if Bootstrap JS is not wiring tabs
+(function wireTabClicks(){
+  const pairs = [
+    ['#tab-vm-tab', '#tab-vm'],
+    ['#tab-pfsense-tab', '#tab-pfsense'],
+    ['#tab-clone-tab', '#tab-clone'],
+  ];
+  pairs.forEach(([btnSel, paneSel]) => {
+    const btn = document.querySelector(btnSel);
+    const pane = document.querySelector(paneSel);
+    if (!btn || !pane) return;
+    btn.addEventListener('click', (ev) => {
+      try {
+        if (window.bootstrap && bootstrap.Tab) {
+          const tab = bootstrap.Tab.getOrCreateInstance(btn);
+          tab.show();
+          return;
+        }
+      } catch {}
+      // Manual toggle
+      document.querySelectorAll('.tab-pane').forEach(p=> p.classList.remove('active','show'));
+      document.querySelectorAll('#confTabs .nav-link').forEach(n=> n.classList.remove('active'));
+      pane.classList.add('active','show');
+      btn.classList.add('active');
+    });
+  });
+})();
+
 /* ======================== Clone PPPoE events ======================== */
 if (cloneUI.gen) {
   cloneUI.gen.addEventListener('click', () => {
