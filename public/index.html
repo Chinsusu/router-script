@@ -1,238 +1,64 @@
 <!doctype html>
-<html lang="en" data-menu="vertical-menu-modern" data-bs-theme="dark" class="vertical-layout vertical-menu-modern navbar-floating footer-static">
+<html lang="en" data-bs-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Proxmox VM Config Editor</title>
-    <meta name="description" content="Edit / regenerate Proxmox QEMU VM configs (Cloudflare Worker UI)" />
-
+    <title>New GUI — Tabs Test</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="/assets/vuexy-shim.css" rel="stylesheet" />
     <link href="/assets/app.css" rel="stylesheet" />
-
-    <!-- If you own Vuexy, drop compiled CSS/JS into /vendor/vuexy and uncomment:
-    <link rel="stylesheet" href="/vendor/vuexy/css/core.css" />
-    <script defer src="/vendor/vuexy/js/core.js"></script>
-    -->
   </head>
-
-  <body class="vertical-layout vertical-menu-modern">
-    <nav class="navbar navbar-expand-lg navbar-dark app-header">
-      <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href="#">VM Config Editor</a>
-        </div>
+  <body>
+    <nav class="navbar navbar-dark app-header">
+      <div class="container-xxl">
+        <span class="navbar-brand">New GUI (Clean Tabs)</span>
+        <a class="btn btn-outline-secondary btn-sm" href="/index.legacy.html">Open legacy UI</a>
+      </div>
     </nav>
 
-    <div class="app-content container-xxl py-3">
-      <!-- Tabs -->
-      <ul class="nav nav-tabs mb-3" id="confTabs" role="tablist">
+    <main class="container-xxl py-3">
+      <ul class="nav nav-tabs mb-3" id="tabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="tab-vm-tab" data-bs-toggle="tab" data-bs-target="#tab-vm"
-                  type="button" role="tab" aria-controls="tab-vm" aria-selected="true">
-            Config VM
-          </button>
+          <a class="nav-link active" id="tab-vm-tab" data-bs-toggle="tab" href="#tab-vm" role="tab" aria-controls="tab-vm" aria-selected="true">Config VM</a>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="tab-pfsense-tab" data-bs-toggle="tab" data-bs-target="#tab-pfsense"
-                  type="button" role="tab" aria-controls="tab-pfsense" aria-selected="false">
-            Config pfSense
-          </button>
+          <a class="nav-link" id="tab-pfsense-tab" data-bs-toggle="tab" href="#tab-pfsense" role="tab" aria-controls="tab-pfsense" aria-selected="false">Config pfSense</a>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="tab-clone-tab" data-bs-toggle="tab" data-bs-target="#tab-clone"
-                  type="button" role="tab" aria-controls="tab-clone" aria-selected="false">
-            Clone PPPoE
-          </button>
+          <a class="nav-link" id="tab-clone-tab" data-bs-toggle="tab" href="#tab-clone" role="tab" aria-controls="tab-clone" aria-selected="false">Clone PPPoE</a>
         </li>
       </ul>
 
-      <div class="tab-content" id="confTabsContent">
-        <!-- TAB: VM -->
-        <div class="tab-pane fade show active" id="tab-vm" role="tabpanel" aria-labelledby="tab-vm-tab" tabindex="0">
-          <div class="row g-3">
-          <div class="col-12 mb-3">
-          <div class="d-flex gap-2">
-            <button id="btn-import" class="btn btn-outline-primary">Import</button>
-            <button id="btn-generate" class="btn btn-primary">Generate</button>
-            <button id="btn-download" class="btn btn-success">Download</button>
-            <button id="btn-copy" class="btn btn-outline-secondary">Copy</button>
-            <button id="btn-reset" class="btn btn-outline-danger">Reset</button>
-          </div>
-        </div>
-        <div class="row g-3">
-        <div class="col-lg-4">
-          <div class="card shadow-sm h-100">
-            <div class="card-header"><h5 class="mb-0">General</h5></div>
-            <div class="card-body">
-              <div class="mb-3">
-                <label for="vmid" class="form-label">VMID</label>
-                <input type="number" min="100" id="vmid" class="form-control" placeholder="203" />
-                <div class="form-text">Used for download filename only.</div>
-              </div>
-              <div class="mb-3">
-                <label for="name" class="form-label">name</label>
-                <input type="text" id="name" class="form-control" placeholder="pf-dlc-203" />
-              </div>
-              <div class="mb-3">
-                <label for="vmgenid" class="form-label">vmgenid</label>
-                <input type="text" id="vmgenid" class="form-control" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-              </div>
-              <div class="mb-3">
-                <label for="scsi0" class="form-label">scsi0</label>
-                <input type="text" id="scsi0" class="form-control" placeholder="local-lvm:vm-203-disk-0,discard=on,size=5G,ssd=1" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-8">
-          <div class="card shadow-sm h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-              <h5 class="mb-0">Network Interfaces</h5>
-              <div class="d-flex align-items-center gap-2">
-                <label class="form-label mb-0" for="net-count">Count</label>
-                <input type="number" id="net-count" class="form-control" style="width: 120px" min="0" max="24" value="1" />
-                <button id="btn-add-net" class="btn btn-outline-primary">+ Add</button>
-                <button id="btn-rand-all" class="btn btn-outline-secondary">Randomize all MACs</button>
-              </div>
-            </div>
-            <div class="card-body">
-              <div id="net-list"></div>
-              <div class="mt-2 small text-muted">net0 defaults to <code>vmbr0</code>. MAC prefix is <code>D8:FC:93</code>.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12">
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="tab-vm" role="tabpanel" aria-labelledby="tab-vm-tab">
           <div class="card shadow-sm">
-            <div class="card-header d-flex align-items-center justify-content-between">
-              <h5 class="mb-0">Output</h5>
-              <div id="status" class="text-muted small"></div>
-            </div>
+            <div class="card-header"><strong>Tab 1 — Config VM</strong></div>
             <div class="card-body">
-              <textarea id="output" class="form-control font-monospace" rows="10" placeholder="# Generated config will appear here…"></textarea>
+              <p class="mb-0">This is the VM tab content. If you can read this, tabs are working.</p>
             </div>
           </div>
         </div>
-        </div> <!-- /tab-vm -->
 
-        <!-- TAB: pfSense -->
-        <div class="tab-pane fade" id="tab-pfsense" role="tabpanel" aria-labelledby="tab-pfsense-tab" tabindex="0">
-          <div class="row g-3">
-            <div class="col-12">
-              <div class="card shadow-sm">
-                <div class="card-header">
-                  <h5 class="mb-0">Base config.xml</h5>
-                </div>
-                <div class="card-body">
-                  <textarea id="pf-xml" class="form-control font-monospace" rows="12"
-                    placeholder="# Paste pfSense config.xml (phải có &lt;interfaces&gt;, &lt;ppps&gt;, &lt;gateways&gt;, &lt;filter&gt;)"></textarea>
-                  <div class="form-text">Hệ thống giữ nguyên file gốc và chỉ chèn WAN2+, PPPoE, gateways và rules.</div>
-                  <div class="mt-3 d-flex gap-2">
-                    <button id="btn-pf-import" class="btn btn-outline-primary">Import XML</button>
-                    <button id="btn-pf-generate" class="btn btn-primary">Generate XML</button>
-                    <button id="btn-pf-download" class="btn btn-success">Download</button>
-                    <button id="btn-pf-copy" class="btn btn-outline-secondary">Copy</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Additional WAN interfaces</label>
-              <input type="number" id="pf-add" min="0" value="0" class="form-control" />
-              <div class="form-text">Số WAN thêm ngoài WAN1 (ví dụ 3 → tạo WAN2..WAN4).</div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Start IP to route</label>
-              <input type="text" id="pf-start-ip" class="form-control" placeholder="192.168.1.101" />
-              <div class="form-text">WAN1 ⟶ IP bắt đầu, WAN2 ⟶ +1, ...</div>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-              <button id="pf-gen" class="btn btn-primary w-100">Generate pfSense XML</button>
-            </div>
-
-            <div class="col-12 d-flex gap-2">
-              <button id="pf-dl" class="btn btn-success">Download</button>
-              <button id="pf-copy" class="btn btn-outline-secondary">Copy</button>
-            </div>
-
-            <div class="col-12">
-              <div class="card shadow-sm">
-                <div class="card-header">
-                  <h5 class="mb-0">Output</h5>
-                </div>
-                <div class="card-body">
-                  <textarea id="pf-output" class="form-control font-monospace" rows="16"
-                    placeholder="# Generated pfSense XML will appear here…"></textarea>
-                </div>
-              </div>
-            </div>
-          </div> <!-- /row -->
-        </div> <!-- /tab-pfsense -->
-
-        <!-- TAB: Clone PPPoE -->
-        <div class="tab-pane fade" id="tab-clone" role="tabpanel" aria-labelledby="tab-clone-tab" tabindex="0">
-          <div class="row g-3">
-            <div class="col-12">
-              <div class="card shadow-sm">
-                <div class="card-header"><h5 class="mb-0">Base &lt;ppp&gt; template</h5></div>
-                <div class="card-body">
-                  <textarea id="ppp-base" class="form-control font-monospace" rows="10"
-                    placeholder='&#10;&lt;ppp&gt;&#10;  &lt;ptpid&gt;1&lt;/ptpid&gt;&#10;  &lt;type&gt;pppoe&lt;/type&gt;&#10;  &lt;if&gt;pppoe1&lt;/if&gt;&#10;  &lt;ports&gt;vtnet1&lt;/ports&gt;&#10;  &lt;username&gt;&lt;![CDATA[user]]&gt;&lt;/username&gt;&#10;  &lt;password&gt;&lt;![CDATA[pass]]&gt;&lt;/password&gt;&#10;&lt;/ppp&gt;'></textarea>
-                  <div class="form-text">Có thể dán cả khối &lt;ppps&gt;...&lt;/ppps&gt; — tool sẽ lấy &lt;ppp&gt; đầu tiên làm mẫu.</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Total PPPoE to generate</label>
-              <input type="number" id="ppp-count" min="1" value="5" class="form-control" />
-              <div class="form-text">Ví dụ 5 ⇒ sinh pppoe1..pppoe5 / vtnet1..vtnet5.</div>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-              <button id="ppp-gen" class="btn btn-primary w-100">Generate PPPs</button>
-            </div>
-            <div class="col-md-4 d-flex align-items-end gap-2">
-              <button id="ppp-dl" class="btn btn-success w-50">Download</button>
-              <button id="ppp-copy" class="btn btn-outline-secondary w-50">Copy</button>
-            </div>
-
-            <div class="col-12">
-              <div class="card shadow-sm">
-                <div class="card-header"><h5 class="mb-0">Output &lt;ppps&gt;</h5></div>
-                <div class="card-body">
-                  <textarea id="ppp-output" class="form-control font-monospace" rows="14"
-                    placeholder="# Kết quả &lt;ppps&gt; ... sẽ xuất hiện ở đây"></textarea>
-                </div>
-              </div>
+        <div class="tab-pane fade" id="tab-pfsense" role="tabpanel" aria-labelledby="tab-pfsense-tab">
+          <div class="card shadow-sm">
+            <div class="card-header"><strong>Tab 2 — Config pfSense</strong></div>
+            <div class="card-body">
+              <p class="mb-0">This is the pfSense tab content. Paste XML features will be added next.</p>
             </div>
           </div>
-        </div> <!-- /tab-clone -->
-      </div> <!-- /tab-content -->
+        </div>
 
-    </div>
-
-    <!-- Import Modal -->
-    <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Import existing .conf</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <textarea id="import-text" class="form-control font-monospace" rows="16" placeholder="Paste the contents of /etc/pve/qemu-server/&lt;VMID&gt;.conf here…"></textarea>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" id="import-apply" class="btn btn-primary">Apply</button>
+        <div class="tab-pane fade" id="tab-clone" role="tabpanel" aria-labelledby="tab-clone-tab">
+          <div class="card shadow-sm">
+            <div class="card-header"><strong>Tab 3 — Clone PPPoE</strong></div>
+            <div class="card-body">
+              <p class="mb-0">This is the PPPoE clone tab content. Generator goes here.</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/app.js" type="module"></script>
+    <script src="/assets/newui.js" type="module"></script>
   </body>
 </html>
