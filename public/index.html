@@ -48,10 +48,39 @@
         </div>
 
         <div class="tab-pane fade" id="tab-clone" role="tabpanel" aria-labelledby="tab-clone-tab">
-          <div class="card shadow-sm">
-            <div class="card-header"><strong>Tab 3 — Clone PPPoE</strong></div>
-            <div class="card-body">
-              <p class="mb-0">This is the PPPoE clone tab content. Generator goes here.</p>
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header"><strong>Base &lt;ppp&gt; template</strong></div>
+                <div class="card-body">
+                  <textarea id="ppp-base" class="form-control font-monospace" rows="10"
+                    placeholder='\n<ppp>\n  <ptpid>1</ptpid>\n  <type>pppoe</type>\n  <if>pppoe1</if>\n  <ports>vtnet1</ports>\n  <username><![CDATA[user]]></username>\n  <password><![CDATA[pass]]></password>\n</ppp>'></textarea>
+                  <div class="form-text">Có thể dán cả &lt;ppps&gt;...&lt;/ppps&gt;; tool sẽ lấy &lt;ppp&gt; đầu tiên làm mẫu.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Total PPPoE to generate</label>
+              <input type="number" id="ppp-count" min="1" value="5" class="form-control" />
+              <div class="form-text">VD 5 ⇒ sinh pppoe1..pppoe5 / vtnet1..vtnet5.</div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button id="ppp-gen" class="btn btn-primary w-100">Generate PPPs</button>
+            </div>
+            <div class="col-md-4 d-flex align-items-end gap-2">
+              <button id="ppp-dl" class="btn btn-success w-50">Download</button>
+              <button id="ppp-copy" class="btn btn-outline-secondary w-50">Copy</button>
+            </div>
+
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header"><strong>Output &lt;ppps&gt;</strong></div>
+                <div class="card-body">
+                  <textarea id="ppp-output" class="form-control font-monospace" rows="14"
+                    placeholder="# Kết quả &lt;ppps&gt; ... sẽ xuất hiện ở đây"></textarea>
+                </div>
+              </div>
             </div>
           </div>
         </div>
