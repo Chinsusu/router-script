@@ -78,22 +78,31 @@ function parseIfPorts(str){
   const m = (str||'').trim().match(/^([a-zA-Z]+)(\d+)$/);
   return m ? { prefix: m[1], start: parseInt(m[2],10) } : { prefix:'pppoe', start:1 };
 }
-function buildPPPClones(basePppOrPpps, total){
-  const ppp = firstPppBlockFromAny(basePppOrPpps);
-  if (!ppp) throw new Error('Không tìm thấy block <ppp> mẫu.');
+function countExistingPpps(s){ return (s.match(/<ppp>/gi)||[]).length; }
+function buildPPPClones(baseInput, total){
+  // Giữ block gốc và append thêm 2..N. Nếu đã là <ppps>, giữ nguyên và append thiếu phần.
+  const template = firstPppBlockFromAny(baseInput);
+  if (!template) throw new Error('Không tìm thấy block <ppp> mẫu.');
   const get = (tag) => {
     const rx = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\/${tag}>`,'i');
-    const m = ppp.match(rx); return m ? m[1].trim() : '';
+    const m = template.match(rx); return m ? m[1].trim() : '';
   };
   const user = get('username'); const pass = get('password');
   const ifStr = get('if') || 'pppoe1'; const portsStr = get('ports') || 'vtnet1';
   const ifp = parseIfPorts(ifStr), portp = parseIfPorts(portsStr);
-  const N = Math.max(1, Number(total)||1);
-  let body = '';
-  for (let i=1;i<=N;i++){
+  const desiredTotal = Math.max(1, Number(total)||1);
+
+  const isSolo = /^\s*<ppp>[\s\S]*<\/ppp>\s*$/i.test(baseInput);
+  const existingCount = isSolo ? 1 : countExistingPpps(baseInput);
+  if (desiredTotal <= existingCount) {
+    return isSolo ? `<ppps>\n${baseInput.trim()}\n</ppps>` : baseInput;
+  }
+
+  let clones = '';
+  for (let i = existingCount + 1; i <= desiredTotal; i++) {
     const ifName = `${ifp.prefix}${ifp.start + (i-1)}`;
     const portName = `${portp.prefix}${portp.start + (i-1)}`;
-    body += `
+    clones += `
     <ppp>
       <ptpid>${i}</ptpid>
       <type>pppoe</type>
@@ -108,7 +117,11 @@ function buildPPPClones(basePppOrPpps, total){
       <mrru></mrru>
     </ppp>`;
   }
-  return `<ppps>${body}\n</ppps>`;
+
+  if (isSolo) {
+    return `<ppps>\n${baseInput.trim()}\n${clones}\n</ppps>`;
+  }
+  return insertBeforeClose(baseInput, 'ppps', clones);
 }
 
 function parseConfig(text) {
