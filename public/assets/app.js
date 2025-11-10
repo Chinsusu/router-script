@@ -175,14 +175,47 @@ function clearStatus(){ ui.status.textContent = ''; }
 
 function addNet(defaults = {}) {
   const i = appState.nets.length;
+  // Mặc định:
+  // - net0: bridge = vmbr0
+  // - net1: giữ nguyên (rỗng hoặc từ import)
+  // - net2+ : kế thừa bridge/tag của net1 nếu có
+  let bridge;
+  let tag;
+
+  if (Object.prototype.hasOwnProperty.call(defaults, 'bridge')) {
+    bridge = defaults.bridge;
+  } else if (i === 0) {
+    bridge = 'vmbr0';
+  } else if (i >= 2 && appState.nets[1]) {
+    bridge = appState.nets[1].bridge || '';
+  } else {
+    bridge = '';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(defaults, 'tag')) {
+    tag = defaults.tag;
+  } else if (i >= 2 && appState.nets[1]) {
+    tag = appState.nets[1].tag || '';
+  } else {
+    tag = '';
+  }
+
   appState.nets.push({
     index: i,
     model: defaults.model || 'virtio',
     mac: (defaults.mac || genMac()).toUpperCase(),
-    bridge: defaults.bridge ?? (i === 0 ? 'vmbr0' : ''),
-    tag: defaults.tag || ''
+    bridge,
+    tag
   });
   renderNets();
+}
+
+function ensureNetCount(count) {
+  count = Math.max(0, Math.min(24, Number(count)||0));
+  while (appState.nets.length < count) addNet({});
+  while (appState.nets.length > count) appState.nets.pop();
+  renderNets();
+}
 }
 function ensureNetCount(count) {
   count = Math.max(0, Math.min(24, Number(count)||0));
@@ -266,7 +299,11 @@ function wireEvents() {
   qs('#btn-copy').addEventListener('click', copyOutput);
   qs('#btn-reset').addEventListener('click', resetAll);
   qs('#btn-add-net').addEventListener('click', ()=> addNet({}));
-  qs('#net-count').addEventListener('input', ()=> ensureNetCount(qs('#net-count').value));
+  qs('#net-count').addEventListener('input', ()=> {
+    const raw = qs('#net-count').value;
+    if (raw === '' || Number.isNaN(Number(raw))) return;
+    ensureNetCount(Number(raw));
+  });
   qs('#btn-rand-all').addEventListener('click', ()=>{ appState.nets.forEach(n=> n.mac = genMac()); renderNets(); });
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();
