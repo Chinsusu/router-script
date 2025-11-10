@@ -469,3 +469,79 @@ if (pfui.gen) {
   pfui.copy.addEventListener('click', () => navigator.clipboard.writeText(pfui.out.value||'').then(()=>setStatus('Copied pfSense XML'), ()=>{}));
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();
+
+// ==== pfSense tab helpers ====
+(function(){
+  const qs = (s)=>document.querySelector(s);
+  const pf = {
+    ta: qs('#pf-xml'),
+    btnImport: qs('#btn-pf-import'),
+    btnGen: qs('#btn-pf-generate'),
+    btnDl: qs('#btn-pf-download'),
+    btnCp: qs('#btn-pf-copy'),
+    doc: null
+  };
+
+  if (!pf.ta) return; // tab chưa có mặt
+
+  function setStatusSafe(msg){
+    try { (window.setStatus || console.info)(msg); }
+    catch { console.info(msg); }
+  }
+
+  function parseXml(str){
+    const doc = new DOMParser().parseFromString(str, 'application/xml');
+    const err = doc.querySelector('parsererror');
+    if (err) throw new Error(err.textContent || 'Invalid XML');
+    return doc;
+  }
+
+  function pfImport(){
+    const txt = (pf.ta.value || '').trim();
+    if (!txt) return setStatusSafe('Paste pfSense XML trước đã.');
+    try {
+      pf.doc = parseXml(txt);
+      const xml = new XMLSerializer().serializeToString(pf.doc);
+      pf.ta.value = xml;
+      setStatusSafe('Đã import pfSense XML.');
+    } catch(e){
+      setStatusSafe('Import lỗi: ' + e.message);
+    }
+  }
+
+  function pfGenerate(){
+    try {
+      const txt = (pf.ta.value || '').trim();
+      if (txt) pf.doc = parseXml(txt);
+      if (!pf.doc) return setStatusSafe('Không có XML để generate.');
+      const xml = new XMLSerializer().serializeToString(pf.doc);
+      pf.ta.value = xml;
+      setStatusSafe('Đã generate pfSense XML.');
+    } catch(e){
+      setStatusSafe('Generate lỗi: ' + e.message);
+    }
+  }
+
+  function pfDownload(){
+    const xml = (pf.ta.value || '').trim();
+    if (!xml) return setStatusSafe('Không có nội dung để tải.');
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'config-pfsense.xml';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function pfCopy(){
+    const xml = (pf.ta.value || '').trim();
+    if (!xml) return setStatusSafe('Không có nội dung để copy.');
+    try { await navigator.clipboard.writeText(xml); setStatusSafe('Đã copy pfSense XML.'); }
+    catch { setStatusSafe('Không copy được vào clipboard.'); }
+  }
+
+  pf.btnImport?.addEventListener('click', pfImport);
+  pf.btnGen?.addEventListener('click', pfGenerate);
+  pf.btnDl?.addEventListener('click', pfDownload);
+  pf.btnCp?.addEventListener('click', pfCopy);
+})();
