@@ -33,6 +33,27 @@ function uniqueMacs(arr) {
 function deepClone(v){
   return JSON.parse(JSON.stringify(v));
 }
+// ---- pfSense helpers ----
+function ipToNum(ip){
+  const p = ip.trim().split('.').map(x=>parseInt(x,10));
+  if (p.length!==4 || p.some(n=>Number.isNaN(n)||n<0||n>255)) throw new Error('Invalid IP: '+ip);
+  return ((p[0]<<24)>>>0) + (p[1]<<16) + (p[2]<<8) + p[3];
+}
+function numToIp(n){
+  return [ (n>>>24)&255, (n>>>16)&255, (n>>>8)&255, n&255 ].join('.');
+}
+function tagText(xml, tag){
+  const re = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\/${tag}>`,'i');
+  const m = xml.match(re); return m ? m[1].trim() : '';
+}
+function insertBeforeClose(xml, tag, content){
+  const idx = xml.lastIndexOf(`</${tag}>`); if (idx<0) throw new Error(`Missing </${tag}>`);
+  return xml.slice(0, idx) + content + xml.slice(idx);
+}
+function insertAfterOpen(xml, tag, content){
+  const re = new RegExp(`<${tag}[^>]*>`,'i'); const m = xml.match(re); if (!m) throw new Error(`Missing <${tag}>`);
+  const at = m.index + m[0].length; return xml.slice(0, at) + '\n' + content + xml.slice(at);
+}
 
 function parseConfig(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -82,6 +103,89 @@ function serializeConfig(state, originalText) {
   return out.join('\n') + '\n';
 }
 
+// Build pfSense XML from a base
+function buildPfSenseXML(baseXml, addCount, startIp){
+  const user = tagText(baseXml, 'username');
+  const pass = tagText(baseXml, 'password');
+  if (!user) throw new Error('Cannot find PPPoE username in <ppps>');
+  const portsVal = tagText(baseXml, 'ports') || 'vtnet1';
+  const pm = portsVal.match(/^([a-zA-Z]+)(\d+)$/) || ['', 'vtnet', '1'];
+  const portPrefix = pm[1] || 'vtnet';
+  const portStart = parseInt(pm[2]||'1',10);
+
+  const total = 1 + Math.max(0, Number(addCount)||0);
+  const baseIpNum = ipToNum(startIp.trim());
+
+  let ifBlocks = '';
+  for (let i=2;i<=total;i++){
+    ifBlocks += `
+    <wan${i}>
+      <enable></enable>
+      <if>pppoe${i}</if>
+      <blockpriv></blockpriv>
+      <blockbogons></blockbogons>
+      <descr><![CDATA[WAN${i}]]></descr>
+      <spoofmac></spoofmac>
+      <ipaddr>pppoe</ipaddr>
+    </wan${i}>`;
+  }
+
+  let pppBlocks = '';
+  for (let i=2;i<=total;i++){
+    pppBlocks += `
+    <ppp>
+      <ptpid>${i}</ptpid>
+      <type>pppoe</type>
+      <if>pppoe${i}</if>
+      <ports>${portPrefix}${portStart + (i-1)}</ports>
+      <username><![CDATA[${user}]]></username>
+      <password><![CDATA[${pass}]]></password>
+      <provider></provider>
+      <bandwidth></bandwidth>
+      <mtu></mtu>
+      <mru></mru>
+      <mrru></mrru>
+    </ppp>`;
+  }
+
+  let gwBlocks = '';
+  for (let i=2;i<=total;i++){
+    gwBlocks += `
+    <gateway_item>
+      <interface>wan${i}</interface>
+      <gateway>dynamic</gateway>
+      <name>WAN${i}_PPPOE</name>
+      <weight>1</weight>
+      <ipprotocol>inet</ipprotocol>
+      <descr><![CDATA[Interface WAN${i}_PPPOE Gateway]]></descr>
+      <gw_down_kill_states></gw_down_kill_states>
+      <monitor>1.1.1.1</monitor>
+    </gateway_item>`;
+  }
+
+  let ruleBlocks = '';
+  for (let i=1;i<=total;i++){
+    const ip = numToIp(baseIpNum + (i-1));
+    ruleBlocks += `
+    <rule>
+      <type>pass</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <source><address>${ip}</address></source>
+      <destination><any></any></destination>
+      <descr></descr>
+      <gateway>WAN${i}_PPPOE</gateway>
+    </rule>`;
+  }
+
+  let out = baseXml;
+  out = insertBeforeClose(out, 'interfaces', ifBlocks);
+  out = insertBeforeClose(out, 'ppps', pppBlocks);
+  out = insertBeforeClose(out, 'gateways', gwBlocks);
+  out = insertAfterOpen(out, 'filter', ruleBlocks);
+  return out;
+}
+
 // UI State (baseline giữ config gốc từ lần import đầu)
 const ui = {
   vmid: qs('#vmid'),
@@ -101,6 +205,16 @@ const ui = {
   addNet: qs('#btn-add-net'),
   randAll: qs('#btn-rand-all'),
   importText: qs('#import-text'),
+};
+// pfSense tab UI
+const pfui = {
+  xml: qs('#pf-xml'),
+  add: qs('#pf-add'),
+  startIp: qs('#pf-start-ip'),
+  out: qs('#pf-output'),
+  gen: qs('#pf-gen'),
+  dl: qs('#pf-dl'),
+  copy: qs('#pf-copy')
 };
 
 let bootstrapModal = null;
@@ -322,5 +436,29 @@ function wireEvents() {
     ensureNetCount(Number(raw));
   });
   qs('#btn-rand-all').addEventListener('click', ()=>{ appState.nets.forEach(n=> n.mac = genMac()); renderNets(); });
+}
+
+// pfSense events
+if (pfui.gen) {
+  pfui.gen.addEventListener('click', () => {
+    try{
+      const base = (pfui.xml.value || '').trim();
+      if (!base) { setStatus('Paste pfSense base XML trước đã.'); return; }
+      const addN = Number(pfui.add.value||0);
+      const start = (pfui.startIp.value || '').trim();
+      if (!start) { setStatus('Nhập Start IP để tạo rules.'); return; }
+      const xml = buildPfSenseXML(base, addN, start);
+      pfui.out.value = xml;
+      clearStatus();
+    } catch(e){
+      setStatus('pfSense: ' + (e.message||e));
+    }
+  });
+  pfui.dl.addEventListener('click', () => {
+    const blob = new Blob([pfui.out.value||''], { type: 'application/xml' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'config-pfsense.xml'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  pfui.copy.addEventListener('click', () => navigator.clipboard.writeText(pfui.out.value||'').then(()=>setStatus('Copied pfSense XML'), ()=>{}));
 }
 (function init(){ wireEvents(); resetAll(); seedSample(); })();

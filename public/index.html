@@ -107,24 +107,53 @@
         </div>
         </div> <!-- /tab-vm -->
 
-        <!-- TAB: pfSense (placeholder, nội dung sẽ thêm sau) -->
+        <!-- TAB: pfSense -->
         <div class="tab-pane fade" id="tab-pfsense" role="tabpanel" aria-labelledby="tab-pfsense-tab" tabindex="0">
           <div class="row g-3">
             <div class="col-12">
               <div class="card shadow-sm">
                 <div class="card-header">
-                  <h5 class="mb-0">pfSense configuration (placeholder)</h5>
+                  <h5 class="mb-0">Base config.xml</h5>
                 </div>
                 <div class="card-body">
-                  <p class="text-muted mb-2">
-                    Khu vực cấu hình pfSense — bạn gửi yêu cầu chi tiết, mình sẽ bổ sung form & logic.
-                  </p>
-                  <textarea class="form-control font-monospace" rows="10"
-                            placeholder="# Nội dung/backup pfSense sẽ hiển thị/nhập ở đây..."></textarea>
+                  <textarea id="pf-xml" class="form-control font-monospace" rows="12"
+                    placeholder="# Paste pfSense config.xml (phải có &lt;interfaces&gt;, &lt;ppps&gt;, &lt;gateways&gt;, &lt;filter&gt;)"></textarea>
+                  <div class="form-text">Hệ thống giữ nguyên file gốc và chỉ chèn WAN2+, PPPoE, gateways và rules.</div>
                 </div>
               </div>
             </div>
-          </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Additional WAN interfaces</label>
+              <input type="number" id="pf-add" min="0" value="0" class="form-control" />
+              <div class="form-text">Số WAN thêm ngoài WAN1 (ví dụ 3 → tạo WAN2..WAN4).</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Start IP to route</label>
+              <input type="text" id="pf-start-ip" class="form-control" placeholder="192.168.1.101" />
+              <div class="form-text">WAN1 ⟶ IP bắt đầu, WAN2 ⟶ +1, ...</div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button id="pf-gen" class="btn btn-primary w-100">Generate pfSense XML</button>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+              <button id="pf-dl" class="btn btn-success">Download</button>
+              <button id="pf-copy" class="btn btn-outline-secondary">Copy</button>
+            </div>
+
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header">
+                  <h5 class="mb-0">Output</h5>
+                </div>
+                <div class="card-body">
+                  <textarea id="pf-output" class="form-control font-monospace" rows="16"
+                    placeholder="# Generated pfSense XML will appear here…"></textarea>
+                </div>
+              </div>
+            </div>
+          </div> <!-- /row -->
         </div> <!-- /tab-pfsense -->
       </div> <!-- /tab-content -->
 
