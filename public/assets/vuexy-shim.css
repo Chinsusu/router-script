@@ -1,0 +1,15 @@
+/* Minimal shim to emulate Vuexy vertical menu & palette */
+.vertical-menu-modern .navbar { border-bottom: 1px solid #232336; }
+.vertical-menu-modern .card { border-radius: 1rem; }
+.vertical-menu-modern .btn { border-radius: .75rem; }
+.vertical-menu-modern .form-control, .vertical-menu-modern .form-select { border-radius: .75rem; }
+
+:root {
+  --vz-primary: #7367F0;
+  --vz-success: #28C76F;
+  --vz-danger: #EA5455;
+  --vz-warning: #FF9F43;
+  --vz-info: #00CFE8;
+}
+.text-primary { color: var(--vz-primary) !important; }
+.bg-primary { background: var(--vz-primary) !important; }

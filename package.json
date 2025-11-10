@@ -1,0 +1,18 @@
+{
+  "name": "vmconf-editor-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "format": "prettier -w .",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@cloudflare/kv-asset-handler": "^0.3.0",
+    "wrangler": "^3.80.0",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3"
+  }
+}

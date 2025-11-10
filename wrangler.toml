@@ -1,0 +1,6 @@
+name = "vmconf-editor-worker"
+main = "src/worker.js"
+compatibility_date = "2025-11-10"
+
+[site]
+bucket = "./public"
