@@ -118,16 +118,14 @@ function buildPfSenseXML(baseXml, addCount, startIp){
 
   let ifBlocks = '';
   for (let i=2;i<=total;i++){
+    const opt = i - 1;
     ifBlocks += `
-    <wan${i}>
+    <opt${opt}>
       <enable></enable>
       <if>pppoe${i}</if>
-      <blockpriv></blockpriv>
-      <blockbogons></blockbogons>
       <descr><![CDATA[WAN${i}]]></descr>
-      <spoofmac></spoofmac>
       <ipaddr>pppoe</ipaddr>
-    </wan${i}>`;
+    </opt${opt}>`;
   }
 
   let pppBlocks = '';
@@ -150,9 +148,10 @@ function buildPfSenseXML(baseXml, addCount, startIp){
 
   let gwBlocks = '';
   for (let i=2;i<=total;i++){
+    const opt = i - 1;
     gwBlocks += `
     <gateway_item>
-      <interface>wan${i}</interface>
+      <interface>opt${opt}</interface>
       <gateway>dynamic</gateway>
       <name>WAN${i}_PPPOE</name>
       <weight>1</weight>
